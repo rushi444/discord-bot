@@ -7,10 +7,10 @@ struct Handler;
 
 impl EventHandler for Handler {
 	fn reaction_add(&self, ctx: Context, reaction: Reaction) {
-		if let Err(why) = reaction
-			.channel_id
-			.say(&ctx.http, format!("{} left a reaction", reaction.user_id))
-		{
+		if let Err(why) = reaction.channel_id.say(
+			&ctx.http,
+			format!("{} left a reaction", reaction.user(&ctx).unwrap().name),
+		) {
 			println!("Error reacting to a reaction: {:?}", why)
 		}
 	}
