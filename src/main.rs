@@ -1,39 +1,44 @@
-use serenity::model::channel::Message;
-use serenity::model::channel::Reaction;
-use serenity::model::gateway::Ready;
-use serenity::prelude::*;
+mod commands;
+mod events;
 
-struct Handler;
+use commands::ADMIN_GROUP;
+use commands::EMOJI_GROUP;
+use commands::GENERAL_GROUP;
+use commands::general::HELP;
+use events::Handler;
 
-impl EventHandler for Handler {
-	fn reaction_add(&self, ctx: Context, reaction: Reaction) {
-		if let Err(why) = reaction.channel_id.say(
-			&ctx.http,
-			format!("{} left a reaction", reaction.user(&ctx).unwrap().name),
-		) {
-			println!("Error reacting to a reaction: {:?}", why)
-		}
-	}
+use serenity::client::Client;
+use serenity::framework::standard::StandardFramework;
 
-	fn message(&self, ctx: Context, msg: Message) {
-		if msg.content == "?ping" {
-			if let Err(why) = msg.channel_id.say(&ctx.http, "Pong?") {
-				println!("Error giving message: {:?}", why)
-			}
-		}
-	}
-
-	fn ready(&self, _: Context, ready: Ready) {
-		println!("{} is ready", ready.user.name);
-	}
-}
+use std::collections::HashSet;
 
 fn main() {
 	let token = include_str!("../token");
 
-	let mut client = Client::new(&token, Handler).expect("Error creating client");
+	let mut client =
+		Client::new(&token, Handler).expect("Error creating client");
+
+	let owners = match client.cache_and_http.http.get_current_application_info()
+	{
+		Ok(info) => {
+			let mut owners = HashSet::new();
+			owners.insert(info.owner.id);
+
+			owners
+		}
+		Err(why) => panic!("Could not access application info: {:?}", why),
+	};
+
+	client.with_framework(
+		StandardFramework::new()
+			.configure(|c| c.prefix("?").owners(owners))
+			.help(&HELP)
+			.group(&GENERAL_GROUP)
+			.group(&EMOJI_GROUP)
+			.group(&ADMIN_GROUP),
+	);
 
 	if let Err(msg) = client.start() {
-		println!("Error {:?}", msg)
+		println!("Error: {:?}", msg);
 	}
 }
